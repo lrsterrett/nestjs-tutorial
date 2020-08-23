@@ -1,46 +1,54 @@
 import { Injectable, HttpException } from '@nestjs/common';
 import { Coffee } from './entities/coffee.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreateCoffeeDto } from './dto/create-coffee.dto';
 import { UpdateCoffeeDto } from './dto/update-coffee.dto';
 
 @Injectable()
 export class CoffeesService {
-  private coffees: Coffee[] = [
-    {
-      id: 1,
-      name: 'Death Wish',
-      brand: 'Death Wish',
-      flavors: ['chocolate', 'vanilla']
-    }
-  ]
+
+  constructor(
+    @InjectRepository(Coffee)
+    private readonly coffeeRepository: Repository<Coffee>
+  ) {}
 
   findAll() {
-    return this.coffees
+    return this.coffeeRepository.find()
   }
 
-  findOne(id: string) {
-    const coffee = this.coffees.find(coffee => coffee.id == +id)
+  async findOne(id: string) {
+    const coffee = await this.coffeeRepository.findOne(id)
+
     if (!coffee) {
       throw new HttpException(`Coffee #${id} not found`, 404)
     }
+
     return coffee
   }
 
-  create(body: any) {
-    this.coffees.push(body)
+  create(createCoffeeDto: CreateCoffeeDto) {
+    const coffee = this.coffeeRepository.create(createCoffeeDto)
+
+    return this.coffeeRepository.save(coffee)
   }
 
-  update(id: string, body: any) {
-    const existingCoffee = this.findOne(id)
-    if (existingCoffee) {
-      // update the existing entity
+  async update(id: string, updateCoffeeDto: UpdateCoffeeDto) {
+    const coffee = await this.coffeeRepository.preload({
+      id: +id,
+      ...updateCoffeeDto
+    })
+
+    if (!coffee) {
+      throw new HttpException(`Coffee #${id} not found`, 404)
     }
+
+    return this.coffeeRepository.save(coffee)
   }
 
-  remove(id: string) {
-    const coffeeIndex = this.coffees.findIndex(coffee => coffee.id == +id)
-    if (coffeeIndex != -1) {
-      this.coffees.splice(coffeeIndex, 1)
-    }
+  async remove(id: string) {
+    const coffee = await this.findOne(id)
+
+    return this.coffeeRepository.remove(coffee)
   }
 }
